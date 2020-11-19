@@ -11,18 +11,19 @@ library(ggplot2)
 library(cowplot)
 library(RColorBrewer)
 library(grid)
+library(viridisLite)
 
 ### Set working dir
 ### Type in  your own path in the quotation marks
-dir <- "~/guide-diceCT-snakes/data/" # specimen list location
-dir_gv <- "~/guide-diceCT-snakes/data/Raw_grayValue_data/" # grayvalue location
-dir_plots <- "~/guide-diceCT-snakes/plots/"
+dir <- "C:/Users/jmcr/Documents/guide-diceCT-snakes/data/" # specimen list location
+dir_gv <- "C:/Users/jmcr/Documents/guide-diceCT-snakes/data/Raw_grayValue_data/" # grayvalue location
+dir_plots <- "C:/Users/jmcr/Documents/guide-diceCT-snakes/plots/"
 
 ### Load data 
 # Loads in datasheet with specimen list (includes taxonomy, staining duration and size measurements)
 dat <- read_csv(paste0(dir, "specimen_list.csv"), col_names = TRUE) %>%
   select(Taxon_family, Genus, Species, G_species, RAB = `RAB #`, Taxon_name, Taxon_ID, Museum, Specimen = `Specimen #`,
-         SVL_mm, Mass_g, Head_diameter_mm = HeadGirth_mm, Days_stained = `Days Stained`) %>%
+         SVL_mm, Mass_g, Head_diameter_mm = HeadGirth_mm, Days_stained = `Days Stained`, Preservation_age) %>%
   mutate(Head_radius_mm = Head_diameter_mm/2, 
          Head_diffusion_rate = Days_stained/Head_radius_mm) %>%
   arrange(Taxon_family, Genus, Species)
@@ -31,18 +32,28 @@ dat <- read_csv(paste0(dir, "specimen_list.csv"), col_names = TRUE) %>%
 dat %>% group_by(Taxon_family) %>% count() # total number of specimens per family
 mean(dat$Head_diffusion_rate) # mean rate of iodine diffusion for the head
 sd(dat$Head_diffusion_rate)
-mean(dat$Body_diffusion_rate, na.rm = T) # mean rate of iodine diffusion for the body
 
 ### Relationship between staining and specimen size
 ## Linear regression
 head <- lm(log(Days_stained) ~ log(Head_radius_mm), dat) # head radius linear model
+head_r2 <- round(summary(head)$r.squared, 2) # save r squared value
+
 mass <- lm(log(Days_stained) ~ log(Mass_g), dat) # mass
+mass_r2 <- round(summary(mass)$r.squared, 2)
+
 svl <- lm(log(Days_stained) ~ log(SVL_mm), dat) # svl
+svl_r2 <- round(summary(svl)$r.squared, 2)
+
+age <- lm(log(Days_stained) ~ log(Preservation_age), dat)
 
 ## Summary of lm
 summary(head)
 coef(head)  
 confint(head)
+
+summary(age)
+coef(age)
+confint(age)
 
 ## Plot staining duration over specimen size
 
@@ -53,7 +64,8 @@ phead <- dat %>%
   geom_smooth(method = "lm", alpha = .2, colour = "grey20") + # add linear model line
   scale_y_continuous(breaks = seq(min(dat$Days_stained), max(dat$Days_stained), by = 3), limits = c(3,12)) +
   scale_x_continuous(breaks = round(seq(min(dat$Head_radius_mm), max(dat$Head_radius_mm), by = 3), 0)) +
-  labs(x = "Head radius (mm)", y = "") + # plot labels
+  annotate("text", x = 2.5, y = 10, label = paste("italic(R) ^ 2 == ", head_r2), parse = TRUE) +
+  labs(x = "Head radius (mm)", y = "Staining duration (d)") + # plot labels
   theme_half_open() +
   theme(plot.margin = unit(c(1,0.5,0.5,0.5), "cm"),
         axis.line = element_line(size = 1))
@@ -64,7 +76,8 @@ pmass  <- dat %>%
   geom_point(shape = 1, size = 2) +
   geom_smooth(method = "lm", alpha = .2, colour = "grey20") + 
   scale_y_continuous(breaks = seq(min(dat$Days_stained), max(dat$Days_stained), by = 3), limits = c(3,12)) +
-  labs(x = "ln Mass", y = "") + 
+  annotate("text", x = 2, y = 10, label = paste("italic(R) ^ 2 == ", mass_r2), parse = TRUE) +
+  labs(x = "ln Mass", y = "Staining duration (d)") + 
   theme_half_open() +
   theme(plot.margin = unit(c(1,0.5,0.5,0.5), "cm"),
         axis.line = element_line(size = 1))
@@ -77,13 +90,28 @@ psvl  <- dat %>%
   geom_smooth(method = "lm", alpha = .2, colour = "grey20") + 
   scale_y_continuous(breaks = seq(min(dat$Days_stained), max(dat$Days_stained), by = 3), limits = c(3,12)) +
   xlim(230, 1840) +
+  annotate("text", x = 300, y = 10, label = paste("italic(R) ^ 2 == ", svl_r2), parse = TRUE) +
   labs(x = "SVL (mm)", y = "Staining duration (d)") + 
   theme_half_open() +
   theme(plot.margin = unit(c(1,0.5,0.5,0.5), "cm"),
         axis.line = element_line(size = 1))
 
+# days~age
+dat %>%
+  drop_na(Preservation_age) %>%
+  ggplot(aes(x = log(Preservation_age), y = Days_stained)) +
+  geom_point(shape = 1, size = 2) +
+  #geom_smooth(method = "lm", alpha = .2, colour = "grey20") + 
+  scale_y_continuous(breaks = seq(min(dat$Days_stained), max(dat$Days_stained), by = 3), limits = c(3,12)) +
+  #scale_x_continuous(breaks = seq(min(0.5), max(5), by = 0.5), limits = c(0.5,5)) +
+  #xlim(230, 1840) +
+  labs(x = "Specimen age (years)", y = "Staining duration (d)") + 
+  theme_half_open() +
+  theme(plot.margin = unit(c(1,0.5,0.5,0.5), "cm"),
+        axis.line = element_line(size = 1))
+
 # Combine plots to make complete Figure
-all_plots <- plot_grid(psvl, pmass, phead, ncol = 3, labels = c("(a)", "(b)", "(c)"))
+all_plots <- plot_grid(psvl, pmass, phead, ncol = 1, labels = c("(a)", "(b)", "(c)"))
 all_plots
 
 # Save plot
@@ -91,8 +119,8 @@ ggsave(filename = "fig_5.png",
        device = "png",
        path = normalizePath(dir_plots),
        plot = all_plots,
-       width = 297, 
-       height = 87, 
+       width = 125, 
+       height = 295, 
        units = "mm")
 
 ### Plot grayscale values for diceCT scans as boxplot and histograms
@@ -117,15 +145,16 @@ gv$Gray_value <- round(gv$Gray_value)
 gv$Specimen_ID <- as.numeric(gv$Specimen_ID)
 
 # Join gray value data with specimen info
-gv <- gv %>%
-  full_join(dat)
+gv_test <- gv %>%
+  left_join(dat)
 
 ## boxplot
-pbox <- gv %>%
+pbox <- gv_test %>%
   filter(Voxel_count < 2500) %>%
-  ggplot(aes(reorder(G_species, Voxel_count), Voxel_count, fill = Days_stained)) +
+  ggplot(aes(reorder(Genus_species, Voxel_count), Voxel_count, fill = Days_stained)) +
+  #ggplot(aes(G_species,Voxel_count, fill = Days_stained)) +
   geom_boxplot(shape = 1) +
-  scale_fill_viridis_c(alpha=0.6, breaks = seq(3,12, by = 2), direction = -1, option = "inferno") +
+  #scale_fill_viridis_c(alpha=0.6, breaks = seq(3, 12, by = 2), direction = -1, option = "inferno") +
   theme_classic() +
   labs(x = "", y = "", fill = "Days") +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, face = "italic", size = 25),
@@ -137,6 +166,7 @@ pbox <- gv %>%
 
 pbox
 
+
 # save boxplot
 ggsave(filename = "boxplot.png",
        device = "png",
@@ -147,6 +177,7 @@ ggsave(filename = "boxplot.png",
        units = "mm")
 
 ## histograms
+# Change name of species to plot different species
 hist <- gv %>%
   filter(Genus_species %in% "Bothrops_bilineatus", Voxel_count < 100000) %>%
   ggplot(aes(x = Gray_value, y = Voxel_count)) +
