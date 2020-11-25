@@ -22,7 +22,7 @@ dir_plots <- "C:/Users/jmcr/Documents/guide-diceCT-snakes/plots/"
 ### Load data 
 # Loads in datasheet with specimen list (includes taxonomy, staining duration and size measurements)
 dat <- read_csv(paste0(dir, "specimen_list.csv"), col_names = TRUE) %>%
-  select(Taxon_family, Genus, Species, G_species, RAB = `RAB #`, Taxon_name, Taxon_ID, Museum, Specimen = `Specimen #`,
+  select(Taxon_family, Genus, Species, G_species, RAB = `RAB #`, Taxon_name, Taxon_ID, Museum, Specimen_ID = `Specimen #`,
          SVL_mm, Mass_g, Head_diameter_mm = HeadGirth_mm, Days_stained = `Days Stained`, Preservation_age) %>%
   mutate(Head_radius_mm = Head_diameter_mm/2, 
          Head_diffusion_rate = Days_stained/Head_radius_mm) %>%
@@ -90,7 +90,7 @@ psvl  <- dat %>%
   geom_smooth(method = "lm", alpha = .2, colour = "grey20") + 
   scale_y_continuous(breaks = seq(min(dat$Days_stained), max(dat$Days_stained), by = 3), limits = c(3,12)) +
   xlim(230, 1840) +
-  annotate("text", x = 300, y = 10, label = paste("italic(R) ^ 2 == ", svl_r2), parse = TRUE) +
+  annotate("text", x = 320, y = 10, label = paste("italic(R) ^ 2 == ", svl_r2), parse = TRUE) +
   labs(x = "SVL (mm)", y = "Staining duration (d)") + 
   theme_half_open() +
   theme(plot.margin = unit(c(1,0.5,0.5,0.5), "cm"),
@@ -111,11 +111,11 @@ dat %>%
         axis.line = element_line(size = 1))
 
 # Combine plots to make complete Figure
-all_plots <- plot_grid(psvl, pmass, phead, ncol = 1, labels = c("(a)", "(b)", "(c)"))
+all_plots <- plot_grid(phead, psvl, pmass, ncol = 1, labels = c("(a)", "(b)", "(c)"))
 all_plots
 
 # Save plot
-ggsave(filename = "fig_5.png",
+ggsave(filename = "fig_3.png",
        device = "png",
        path = normalizePath(dir_plots),
        plot = all_plots,
@@ -126,7 +126,6 @@ ggsave(filename = "fig_5.png",
 ### Plot grayscale values for diceCT scans as boxplot and histograms
 
 ## Load in raw gray value data
-# I had to manually change some of the file names to make sure this worked
 gv <- list.files(path = dir_gv, pattern = ".csv", full.names = TRUE) %>%
   set_names(str_remove(string = basename(.), pattern = "raw.csv")) %>%
   map(read.csv, stringsAsFactors = FALSE) %>%
@@ -145,16 +144,19 @@ gv$Gray_value <- round(gv$Gray_value)
 gv$Specimen_ID <- as.numeric(gv$Specimen_ID)
 
 # Join gray value data with specimen info
-gv_test <- gv %>%
-  left_join(dat)
+box_p <- subset(gv, Voxel_count <2500) 
+box_p <- box_p %>%
+  full_join(dat) 
+
+head(box_p)
+tail(box_p)
 
 ## boxplot
-pbox <- gv_test %>%
-  filter(Voxel_count < 2500) %>%
-  ggplot(aes(reorder(Genus_species, Voxel_count), Voxel_count, fill = Days_stained)) +
-  #ggplot(aes(G_species,Voxel_count, fill = Days_stained)) +
+bp <- box_p %>%
+  ggplot(aes(reorder(Taxon_ID, Voxel_count), Voxel_count, fill = Days_stained)) +
   geom_boxplot(shape = 1) +
-  #scale_fill_viridis_c(alpha=0.6, breaks = seq(3, 12, by = 2), direction = -1, option = "inferno") +
+  scale_fill_viridis_c(alpha=0.6, breaks = seq(3,12, by = 2), direction = -1, option = "inferno") +
+  #geom_text(aes(label = Days_stained), position=position_dodge(width=0.9), vjust=-0.25) +
   theme_classic() +
   labs(x = "", y = "", fill = "Days") +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, face = "italic", size = 25),
@@ -164,14 +166,12 @@ pbox <- gv_test %>%
         axis.ticks.y = element_line(colour = "black", size = 2),
         text = element_text(size = 20))
 
-pbox
-
 
 # save boxplot
-ggsave(filename = "boxplot.png",
+ggsave(filename = "boxplot2.png",
        device = "png",
        path = normalizePath(dir_plots),
-       plot = pbox,
+       plot = bp,
        width = 520, 
        height = 150, 
        units = "mm")
