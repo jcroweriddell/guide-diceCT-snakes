@@ -153,7 +153,7 @@ tail(box_p)
 
 ## boxplot
 bp <- box_p %>%
-  ggplot(aes(reorder(Taxon_ID, Voxel_count), Voxel_count, fill = Days_stained)) +
+  ggplot(aes(reorder(G_species, Voxel_count), Voxel_count, fill = Days_stained)) +
   geom_boxplot(shape = 1) +
   scale_fill_viridis_c(alpha=0.6, breaks = seq(3,12, by = 2), direction = -1, option = "inferno") +
   #geom_text(aes(label = Days_stained), position=position_dodge(width=0.9), vjust=-0.25) +
@@ -166,9 +166,10 @@ bp <- box_p %>%
         axis.ticks.y = element_line(colour = "black", size = 2),
         text = element_text(size = 20))
 
+bp
 
 # save boxplot
-ggsave(filename = "boxplot2.png",
+ggsave(filename = "boxplot3.png",
        device = "png",
        path = normalizePath(dir_plots),
        plot = bp,
